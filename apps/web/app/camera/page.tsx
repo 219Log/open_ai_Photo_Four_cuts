@@ -6,10 +6,30 @@ import Link from 'next/link'
 type SlotId = 1 | 2 | 3 | 4
 
 const PRESETS = [
-  { key: 'manga', label: '만화주인공', prompt: 'Convert the portrait into an animated manga main character. Big expressive eyes, clean line art, vibrant cel-shaded colors. Preserve identity and lighting.' },
-  { key: 'cyber', label: '사이버', prompt: 'Transform into a neon cyberpunk portrait. Holographic accents, neon rim light, city night ambiance, high-tech textures. Keep facial identity.' },
-  { key: 'pixel', label: '픽셀', prompt: 'Render as retro 32x32 pixel-art portrait. Crisp pixel edges, limited palette, arcade vibe. Maintain key facial features.' },
-  { key: 'portrait', label: '초상화', prompt: 'Enhance into a studio-grade realistic portrait. Soft key light, shallow depth of field, fine skin texture, natural color grading.' },
+  { key: 'manga', label: '만화', prompt: 'Convert the portrait into an animated manga main character. Big expressive eyes, clean line art, vibrant cel-shaded colors. Preserve identity and lighting.' },
+  { key: 'harajuku_pop', label: '일본식', prompt: "Transform the image with a vibrant, high-energy Japanese 'Harajuku Pop' filter. Apply a powerful facial filter that creates an intense 'Tsuyahada' (lustrous skin) effect, giving the skin a super glossy, almost wet look with sharp highlights. This single effect should also boost the overall definition and vividness of all facial features. Enhance the lip color to a bold, saturated pink or red. Completely replace the background with a busy, colorful, psychedelic pattern filled with pop-art elements. Overlay with bold, bubbly digital text that mimics Japanese Katakana/Hiragana styles, using thick outlines and neon colors. Scatter classic kawaii doodles like music notes, rainbows, and starbursts. The final result should be dynamic and playful, while preserving the subject's facial identity."},
+  { key: 'photoreal_ulzzang', label: '실사 미인', prompt: "Transform the image into a hyper-realistic, high-fashion magazine style portrait of a Korean 'ulzzang' or influencer. The primary goal is photorealism combined with idealized beauty. The facial features should be perfected as if through subtle, expert-level cosmetic surgery and professional photo retouching—a delicate v-line jaw, high nose bridge, and full lips. The skin must be rendered to be absolutely flawless and smooth with a velvety, semi-matte texture, but it MUST retain a believable, photorealistic quality with natural highlights and shadows, avoiding any flat, painted, or overly airbrushed appearance. Place the subject in a mundane but chic, realistic setting like a sunlit café, a minimalist modern interior, or a clean studio. The lighting must be natural and believable, simulating soft daylight from a window or professional studio strobes. Crucially, there should be NO glowing halos, fantasy elements, artificial vignettes, or special effect auras around the subject. The final image should look like a real, professionally shot photograph of an impossibly beautiful person."},
+  {
+    key: 'context_aware_bg',
+    label: 'AI 추천 배경',
+    prompt: `This is an advanced background replacement task. Your primary goal is to intelligently generate a new, contextually appropriate background based on a deep analysis of the foreground subject(s).
+  
+  First, the unbreakable rule: The foreground subject(s)—including every detail of their pose, expression, hair, clothing, and accessories—must remain ABSOLUTELY UNCHANGED and identical to the original image.
+  
+  Second, the creative task: Instead of being given a location, you must first ANALYZE the subject(s):
+  - Their expressions and overall mood (e.g., joyful, serious, romantic, energetic).
+  - Their poses and actions (e.g., formally posing, dancing, candidly laughing, walking).
+  - Their clothing and style (e.g., formal wear, casual street style, beachwear, business attire).
+  
+  Third, the generation task: Based on your analysis, create a new, hyper-realistic background that logically and aesthetically complements the subjects. The background should feel like the natural, original setting for their observed state and activity. It should enhance the story the subjects are telling.
+  
+  Finally, the integration task: The final composite must be FLAWLESS.
+  - The lighting on the subjects must be perfectly adapted to match the lighting of your newly generated background.
+  - Cast realistic, soft shadows from the subjects onto the new environment.
+  - The boundary between subjects and background must be completely seamless and natural, with no 'cutout' appearance.
+  
+  The final image must look like a single, plausible, and cohesive photograph.`
+  }
 ]
 
 interface SlotImage { slot: SlotId; dataUrl: string | null }
@@ -175,9 +195,21 @@ export default function CameraPage() {
         return
       }
       const json = await res.json() as { results: { slot: SlotId, image: string | null }[] }
-      const out: Record<SlotId, string | null> = { 1: converted[1], 2: converted[2], 3: converted[3], 4: converted[4] }
-      json.results.forEach(r => { if (r.image) out[r.slot] = r.image })
-      setConverted(out)
+      // Start from current state to preserve previously converted slots
+      const nextConverted: Record<SlotId, string | null> = { 1: converted[1], 2: converted[2], 3: converted[3], 4: converted[4] }
+      // Downscale/Compress each returned image before saving to reduce localStorage usage
+      for (const r of json.results) {
+        if (!r.image) continue
+        try {
+          const compressed = await downscaleDataUrl(r.image, 1024, 0.85)
+          nextConverted[r.slot] = compressed
+        } catch {
+          nextConverted[r.slot] = r.image
+        }
+      }
+      setConverted(nextConverted)
+      // Persist immediately so /print page finds data right away
+      safeSetItem('convertedSlots', JSON.stringify(nextConverted))
     } catch (e) {
       console.error(e)
       alert('AI 변환 중 네트워크 오류가 발생했습니다.')
@@ -185,6 +217,17 @@ export default function CameraPage() {
       const slotsConvertingSet = new Set(slotsConverting)
       setLoadingSlots(prev => ({ ...prev, ...Object.fromEntries(Array.from(slotsConvertingSet).map(s => [s, false])) }))
     }
+  }
+
+  function persistForPrint() {
+    try {
+      const payload = { 1: converted[1], 2: converted[2], 3: converted[3], 4: converted[4] }
+      // Persist to both storages for reliability
+      if (typeof window !== 'undefined') {
+        try { sessionStorage.setItem('printPayload', JSON.stringify(payload)) } catch {}
+      }
+      safeSetItem('convertedSlots', JSON.stringify(payload))
+    } catch {}
   }
 
   return (
@@ -314,7 +357,7 @@ export default function CameraPage() {
         >
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 32, lineHeight: 1, marginBottom: 6 }}>🎨</div>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>AI 변환</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>변환</div>
           </div>
         </div>
 
@@ -334,6 +377,7 @@ export default function CameraPage() {
 
         <Link
           href="/print"
+          onClick={persistForPrint}
           style={{
             display: 'grid', placeItems: 'center', background: '#111827', color: 'white',
             borderRadius: 16, aspectRatio: '1 / 1', textDecoration: 'none',
@@ -342,7 +386,7 @@ export default function CameraPage() {
         >
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 32, lineHeight: 1, marginBottom: 6 }}>🖨️</div>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>프린트</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>프린트/PDF 변환</div>
           </div>
         </Link>
       </div>

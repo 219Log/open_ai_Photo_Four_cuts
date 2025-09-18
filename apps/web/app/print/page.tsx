@@ -9,8 +9,27 @@ export default function PrintPage() {
   const [converted, setConverted] = useState<Record<SlotId, string | null>>({ 1: null, 2: null, 3: null, 4: null })
 
   useEffect(() => {
-    const raw = localStorage.getItem('convertedSlots')
-    if (raw) setConverted(JSON.parse(raw))
+    // Try session payload first (set right before navigation)
+    try {
+      const sess = typeof window !== 'undefined' ? sessionStorage.getItem('printPayload') : null
+      if (sess) {
+        const p = JSON.parse(sess)
+        const finalRec: Record<SlotId, string | null> = { 1: p?.[1] ?? p?.['1'] ?? null, 2: p?.[2] ?? p?.['2'] ?? null, 3: p?.[3] ?? p?.['3'] ?? null, 4: p?.[4] ?? p?.['4'] ?? null }
+        setConverted(finalRec)
+        return
+      }
+    } catch {}
+
+    // Fallback to localStorage convertedSlots
+    try {
+      const rawConv = localStorage.getItem('convertedSlots')
+      const conv = rawConv ? JSON.parse(rawConv) : {}
+      const finalRec: Record<SlotId, string | null> = { 1: null, 2: null, 3: null, 4: null }
+      ;([1,2,3,4] as SlotId[]).forEach((i) => {
+        finalRec[i] = (conv?.[i as any] || conv?.[String(i)] || null) as string | null
+      })
+      setConverted(finalRec)
+    } catch {}
   }, [])
 
   function handlePrint() {
