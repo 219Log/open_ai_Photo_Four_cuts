@@ -9,7 +9,10 @@ export default function PrintPage() {
   const [converted, setConverted] = useState<Record<SlotId, string | null>>({ 1: null, 2: null, 3: null, 4: null })
 
   useEffect(() => {
-    // Try session payload first (set right before navigation)
+    // [데이터 로딩 순서]
+    // 1) 우선 sessionStorage.printPayload 를 읽는다(카메라에서 방금 저장한 최신 데이터).
+    // 2) 없으면 localStorage.convertedSlots 를 폴백으로 읽는다(이전 세션/새 탭 등).
+    // 3) 읽어온 값을 상태(converted)에 반영하여 4컷을 렌더한다.
     try {
       const sess = typeof window !== 'undefined' ? sessionStorage.getItem('printPayload') : null
       if (sess) {
@@ -20,7 +23,7 @@ export default function PrintPage() {
       }
     } catch {}
 
-    // Fallback to localStorage convertedSlots
+    // [폴백 로딩]
     try {
       const rawConv = localStorage.getItem('convertedSlots')
       const conv = rawConv ? JSON.parse(rawConv) : {}
@@ -33,6 +36,8 @@ export default function PrintPage() {
   }, [])
 
   function handlePrint() {
+    // [프린트 실행 단계]
+    // 4) 브라우저의 인쇄 대화상자를 연다.
     window.print()
   }
 

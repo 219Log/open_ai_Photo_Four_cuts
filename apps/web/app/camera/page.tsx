@@ -7,7 +7,7 @@ type SlotId = 1 | 2 | 3 | 4
 
 const PRESETS = [
   { key: 'manga', label: '만화', prompt: 'Convert the portrait into an animated manga main character. Big expressive eyes, clean line art, vibrant cel-shaded colors. Preserve identity and lighting.' },
-  { key: 'harajuku_pop', label: '일본식', prompt: "Transform the image with a vibrant, high-energy Japanese 'Harajuku Pop' filter. Apply a powerful facial filter that creates an intense 'Tsuyahada' (lustrous skin) effect, giving the skin a super glossy, almost wet look with sharp highlights. This single effect should also boost the overall definition and vividness of all facial features. Enhance the lip color to a bold, saturated pink or red. Completely replace the background with a busy, colorful, psychedelic pattern filled with pop-art elements. Overlay with bold, bubbly digital text that mimics Japanese Katakana/Hiragana styles, using thick outlines and neon colors. Scatter classic kawaii doodles like music notes, rainbows, and starbursts. The final result should be dynamic and playful, while preserving the subject's facial identity."},
+  { key: 'harajuku_pop', label: '일본식', prompt: "Makes captured images look like Japanese sticker photos. Preserves the original mood and lighting. Maximizes the unique feel of Japanese sticker photos. Sets the correction level to maximum. (Eye size is adjusted within approximately 0% to 20%.)"},
   { key: 'photoreal_ulzzang', label: '실사 미인', prompt: "Transform the image into a hyper-realistic, high-fashion magazine style portrait of a Korean 'ulzzang' or influencer. The primary goal is photorealism combined with idealized beauty. The facial features should be perfected as if through subtle, expert-level cosmetic surgery and professional photo retouching—a delicate v-line jaw, high nose bridge, and full lips. The skin must be rendered to be absolutely flawless and smooth with a velvety, semi-matte texture, but it MUST retain a believable, photorealistic quality with natural highlights and shadows, avoiding any flat, painted, or overly airbrushed appearance. Place the subject in a mundane but chic, realistic setting like a sunlit café, a minimalist modern interior, or a clean studio. The lighting must be natural and believable, simulating soft daylight from a window or professional studio strobes. Crucially, there should be NO glowing halos, fantasy elements, artificial vignettes, or special effect auras around the subject. The final image should look like a real, professionally shot photograph of an impossibly beautiful person."},
   {
     key: 'context_aware_bg',
@@ -221,6 +221,11 @@ export default function CameraPage() {
     }
   }
 
+  // [프린트 이동 전 준비 절차]
+  // 1) 현재 메모리의 변환된 4컷을 payload로 구성한다.
+  // 2) payload를 sessionStorage.printPayload 에 저장한다(동일 탭 이동 시 즉시 사용).
+  // 3) 같은 데이터를 localStorage.convertedSlots 에도 백업 저장한다(새 탭/재방문 대비).
+  // 4) 이후 /print 로 이동하면 프린트 페이지가 위 저장소에서 데이터를 읽어 즉시 렌더한다.
   function persistForPrint() {
     try {
       const payload = { 1: converted[1], 2: converted[2], 3: converted[3], 4: converted[4] }
@@ -377,6 +382,7 @@ export default function CameraPage() {
           </div>
         </Link>
 
+        {/* 5) 프린트 페이지로 이동하기 전에 persistForPrint 를 호출해 데이터 보존 */}
         <Link
           href="/print"
           onClick={persistForPrint}
