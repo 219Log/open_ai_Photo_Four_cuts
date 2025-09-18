@@ -77,9 +77,13 @@ export default function CameraPage() {
   const [activeSlot, setActiveSlot] = useState<SlotId>(1)
   const [slots, setSlots] = useState<Record<SlotId, string | null>>({ 1: null, 2: null, 3: null, 4: null })
   const [converted, setConverted] = useState<Record<SlotId, string | null>>({ 1: null, 2: null, 3: null, 4: null })
-  const [prompt, setPrompt] = useState('')
+  const [prompt, setPrompt] = useState(PRESETS[0].prompt)
   const [loadingSlots, setLoadingSlots] = useState<Record<SlotId, boolean>>({ 1: false, 2: false, 3: false, 4: false })
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const isConverting = Object.values(loadingSlots).some(Boolean)
+  const isAllSlotsReady = Object.values(slots).every(Boolean)
+  const isConvertDisabled = isConverting || !isAllSlotsReady
+  const [activePresetKey, setActivePresetKey] = useState<string | null>(PRESETS[0].key)
 
   useEffect(() => {
     const rawSlots = typeof window !== 'undefined' ? localStorage.getItem('slots') : null
@@ -87,7 +91,11 @@ export default function CameraPage() {
     const rawPrompt = typeof window !== 'undefined' ? localStorage.getItem('prompt') : null
     if (rawSlots) setSlots(JSON.parse(rawSlots))
     if (rawConverted) setConverted(JSON.parse(rawConverted))
-    if (rawPrompt) setPrompt(rawPrompt)
+    if (rawPrompt) {
+      setPrompt(rawPrompt)
+      const found = PRESETS.find(p => p.prompt === rawPrompt)
+      setActivePresetKey(found ? found.key : null)
+    }
   }, [])
 
   useEffect(() => { safeSetItem('slots', JSON.stringify(slots)) }, [slots])
@@ -172,7 +180,10 @@ export default function CameraPage() {
     e.currentTarget.value = ''
   }
 
-  function choosePreset(p: string) { setPrompt(p) }
+  function choosePreset(presetKey: string, p: string) {
+    setPrompt(p)
+    setActivePresetKey(presetKey)
+  }
 
   async function convertAll() {
     const images: SlotImage[] = (Object.entries(slots) as [string, string | null][]) 
@@ -245,8 +256,15 @@ export default function CameraPage() {
       <div className="camera-top-grid" style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr' }}>
         <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 6 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>촬영 카메라</div>
-          <div style={{ width: '100%', aspectRatio: '1 / 1', background: '#000', borderRadius: 6, overflow: 'hidden' }}>
-            <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
+          {/* 정사각형 프레임(1:1) 고정 + 내부 3:4 영역 중앙 배치 → 좌우 검은 레터박스 */}
+          <div style={{ position: 'relative', width: '100%', background: '#000', borderRadius: 6, overflow: 'hidden' }}>
+            <div style={{ paddingTop: '100%' }} />
+            <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+              {/* 부모가 정사각형이므로, 3:4 비율 상자 = width: 75%, height: 100% */}
+              <div style={{ height: '100%', width: '75%' }}>
+                <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }} muted playsInline />
+              </div>
+            </div>
           </div>
           {cameraError && (
             <div style={{ color: '#d32f2f', marginTop: 8, fontSize: 12 }}>{cameraError}</div>
@@ -335,11 +353,32 @@ export default function CameraPage() {
       {/* 하단: 프리셋/프롬프트 */}
       <div style={{ display: 'grid', gap: 8 }}>
         <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(4, 1fr)' }}>
-          {PRESETS.map(p => (
-            <button key={p.key} onClick={() => choosePreset(p.prompt)} style={{ width: '100%', height: 48 }}>{p.label}</button>
-          ))}
+          {PRESETS.map(p => {
+            const active = activePresetKey === p.key
+            return (
+              <button
+                key={p.key}
+                onClick={() => choosePreset(p.key, p.prompt)}
+                aria-pressed={active}
+                title={p.label}
+                style={{
+                  width: '100%', height: 48,
+                  borderRadius: 10,
+                  border: active ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                  background: active ? '#e0efff' : '#fff',
+                  fontWeight: 700
+                }}
+              >{p.label}</button>
+            )
+          })}
         </div>
-        <input value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="프롬프트를 입력하거나 프리셋을 선택" />
+        <input
+          value={prompt}
+          onChange={e => { setPrompt(e.target.value); setActivePresetKey(null) }}
+          placeholder="프롬프트를 입력하거나 프리셋을 선택"
+          style={{ display: 'none' }}
+          aria-hidden
+        />
       </div>
 
       {/* 하단: 앱 아이콘 카드 (AI 변환, 홈, 프린트) */}
@@ -352,15 +391,17 @@ export default function CameraPage() {
         }}
       >
         <div
-          onClick={convertAll}
+          onClick={() => { if (!isConvertDisabled) convertAll() }}
           role="button"
+          aria-disabled={isConvertDisabled}
           tabIndex={0}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') convertAll() }}
+          onKeyDown={(e) => { if (!isConvertDisabled && (e.key === 'Enter' || e.key === ' ')) convertAll() }}
           style={{
             display: 'grid', placeItems: 'center', background: '#111827', color: 'white',
-            borderRadius: 16, aspectRatio: '1 / 1', cursor: 'pointer', userSelect: 'none',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+            borderRadius: 16, aspectRatio: '1 / 1', cursor: isConvertDisabled ? 'not-allowed' : 'pointer', userSelect: 'none',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)', opacity: isConvertDisabled ? 0.5 : 1
           }}
+          title={!isAllSlotsReady ? '4컷을 모두 채워주세요' : undefined}
         >
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 32, lineHeight: 1, marginBottom: 6 }}>🎨</div>
