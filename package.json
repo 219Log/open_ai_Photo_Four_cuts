@@ -1,0 +1,24 @@
+{
+  "name": "ai-4cut-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web",
+    "apps/api"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "dev:api": "npm --workspace apps/api run dev",
+    "predev:all": "kill-port 3000 8080 9443",
+    "dev:all": "concurrently -k -n api,web,caddy -c blue,green,magenta \"npm run dev:api\" \"npm run dev:web\" \"npm run dev:caddy:https\"",
+    "dev:caddy": "caddy run --config deploy/Caddyfile.local",
+    "dev:caddy:https": "caddy run --config deploy/Caddyfile.https.local",
+    "build:web": "npm --workspace apps/web run build",
+    "start:web": "npm --workspace apps/web run start",
+    "start:api": "npm --workspace apps/api run start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "kill-port": "^2.0.1"
+  }
+}

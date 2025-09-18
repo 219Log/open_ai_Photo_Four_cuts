@@ -1,0 +1,15 @@
+my-4cut-app.com {
+    handle_path /api/* {
+        reverse_proxy localhost:8080
+    }
+
+    handle {
+        reverse_proxy localhost:3000
+    }
+
+    log {
+        output file /var/log/caddy/access.log
+    }
+
+    encode gzip zstd
+}
