@@ -67,6 +67,8 @@ function safeSetItem(key: string, value: string) {
   try { localStorage.setItem(key, value) } catch (e) { console.warn('localStorage quota exceeded for', key) }
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || ''
+
 export default function CameraPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -182,7 +184,7 @@ export default function CameraPage() {
     setLoadingSlots(prev => ({ ...prev, ...Object.fromEntries(slotsConverting.map(s => [s, true])) }))
 
     try {
-      const res = await fetch('/api/generate', {
+      const res = await fetch(`${API_BASE}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, images, modelId: 'gemini-2.5-flash-image-preview', options: { concurrency: 2 } })
