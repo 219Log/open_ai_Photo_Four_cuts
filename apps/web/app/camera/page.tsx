@@ -74,7 +74,7 @@ export default function CameraPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [facingMode, setFacingMode] = useState<MediaTrackConstraints['facingMode']>('environment')
-  const [activeSlot, setActiveSlot] = useState<SlotId>(1)
+  const [activeSlot, setActiveSlot] = useState<SlotId | null>(1)
   const [slots, setSlots] = useState<Record<SlotId, string | null>>({ 1: null, 2: null, 3: null, 4: null })
   const [converted, setConverted] = useState<Record<SlotId, string | null>>({ 1: null, 2: null, 3: null, 4: null })
   const [prompt, setPrompt] = useState(PRESETS[0].prompt)
@@ -84,6 +84,8 @@ export default function CameraPage() {
   const isAllSlotsReady = Object.values(slots).every(Boolean)
   const isConvertDisabled = isConverting || !isAllSlotsReady
   const [activePresetKey, setActivePresetKey] = useState<string | null>(PRESETS[0].key)
+  const [overlayText, setOverlayText] = useState<string | null>(null)
+  const [isShooting, setIsShooting] = useState<boolean>(false)
 
   useEffect(() => {
     const rawSlots = typeof window !== 'undefined' ? localStorage.getItem('slots') : null
@@ -161,20 +163,39 @@ export default function CameraPage() {
     return canvas.toDataURL('image/jpeg', 0.92)
   }
 
+  function sleep(ms: number) { return new Promise(resolve => setTimeout(resolve, ms)) }
+
   async function onShoot() {
-    const raw = captureToDataUrlRaw()
-    if (!raw) return
-    const dataUrl = await downscaleDataUrl(raw, 1024, 0.85)
-    setSlots(prev => ({ ...prev, [activeSlot]: dataUrl }))
+    if (isShooting || !activeSlot) return
+    setIsShooting(true)
+    const slotNow = activeSlot
+    try {
+      setOverlayText('2')
+      await sleep(800)
+      setOverlayText('1')
+      await sleep(800)
+      const raw = captureToDataUrlRaw()
+      if (!raw) { setOverlayText(null); return }
+      const dataUrl = await downscaleDataUrl(raw, 1024, 0.85)
+      setSlots(prev => ({ ...prev, [slotNow as SlotId]: dataUrl }))
+      setOverlayText(`${slotNow}컷`)
+      await sleep(700)
+      setOverlayText(null)
+      if ((slotNow as number) < 4) setActiveSlot(((slotNow as number) + 1) as SlotId)
+      else setActiveSlot(null)
+    } finally {
+      setIsShooting(false)
+    }
   }
 
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!activeSlot) { e.currentTarget.value = ''; return }
     const reader = new FileReader()
     reader.onload = async () => {
       const dataUrl = await downscaleDataUrl(reader.result as string, 1024, 0.85)
-      setSlots(prev => ({ ...prev, [activeSlot]: dataUrl }))
+      setSlots(prev => ({ ...prev, [activeSlot as SlotId]: dataUrl }))
     }
     reader.readAsDataURL(file)
     e.currentTarget.value = ''
@@ -283,6 +304,11 @@ export default function CameraPage() {
                 <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }} muted playsInline />
               </div>
             </div>
+            {overlayText && (
+              <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+                <div style={{ color: '#fff', fontSize: 144, fontWeight: 800 }}>{overlayText}</div>
+              </div>
+            )}
             {/* 전/후면 토글 오버레이 */}
             <button
               onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
@@ -321,7 +347,7 @@ export default function CameraPage() {
           <div style={{ fontWeight: 600, marginBottom: 6, textAlign: 'center' }}>컨트롤</div>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'space-between', alignItems: 'center', maxWidth: 260, margin: '0 auto' }}>
             <button onClick={resetAll} style={{ width: 72, height: 72, borderRadius: 12, background: '#b91c1c', color: '#fff' }}>초기화</button>
-            <button onClick={onShoot} style={{ width: 72, height: 72, borderRadius: 12 }}>촬영</button>
+            <button onClick={onShoot} disabled={!activeSlot || isShooting} style={{ width: 72, height: 72, borderRadius: 12, opacity: (!activeSlot || isShooting) ? 0.5 : 1, cursor: (!activeSlot || isShooting) ? 'not-allowed' : 'pointer' }}>촬영</button>
             <button onClick={() => fileInputRef.current?.click()} style={{ width: 72, height: 72, borderRadius: 12 }}>업로드</button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={onUpload} style={{ display: 'none' }} aria-label="사진 업로드" title="사진 업로드" />
           </div>
@@ -415,12 +441,12 @@ export default function CameraPage() {
 
       
 
-      {/* 하단: 앱 아이콘 카드 (홈, 프린트) */}
+      {/* 하단: 앱 아이콘 카드 (홈, 맨위로, 프린트) */}
       <div
         style={{
           display: 'grid',
           gap: 12,
-          gridTemplateColumns: 'repeat(2, minmax(90px, 1fr))',
+          gridTemplateColumns: 'repeat(3, minmax(90px, 1fr))',
           alignItems: 'stretch',
         }}
       >
@@ -437,6 +463,24 @@ export default function CameraPage() {
             <div style={{ fontSize: 14, fontWeight: 700 }}>홈</div>
           </div>
         </Link>
+
+        <div
+          onClick={() => { if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }) } }}
+          style={{
+            display: 'grid', placeItems: 'center', background: '#111827', color: 'white',
+            borderRadius: 16, aspectRatio: '1 / 1', cursor: 'pointer', userSelect: 'none',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          }}
+          title="맨위로 가기"
+        >
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 32, lineHeight: 1, marginBottom: 6 }}>⬆️</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>맨위로</div>
+          </div>
+        </div>
 
         {/* 5) 프린트 페이지로 이동하기 전에 persistForPrint 를 호출해 데이터 보존 */}
         <Link
