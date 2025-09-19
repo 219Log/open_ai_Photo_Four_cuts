@@ -1,5 +1,7 @@
 # 백엔드 API 사양 (Express)
 
+> 참고: Vercel 배포에서는 Next.js Route Handler(`/api/generate`)를 사용하는 구성이 기본입니다. 해당 사양은 [Next.js Route Handler(API) 사양](./route-handler.md)을 참고하세요. 이 문서는 Self‑Hosted(Express) 구성을 위한 사양입니다.
+
 ## 기본
 - 베이스 URL: `/api`
 - 인증: (기본 없음) — 필요 시 토큰 기반 인증 추가 가능
@@ -26,6 +28,8 @@
   }
 }
 ```
+
+기본 모델 권장값: `gemini-2.5-flash-image-preview`
 - 응답(JSON 예시):
 ```json
 {

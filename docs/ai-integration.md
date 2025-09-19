@@ -1,12 +1,12 @@
 # AI 연동 가이드 (Gemini / 나노바나나)
 
 ## 개요
-- 기본 모델: `GEMINI_MODEL_ID=gemini-2.5-flash-image`
+- 기본 모델: `GEMINI_MODEL_ID=gemini-2.5-flash-image-preview`
 - 공급자 전환 가능: `AI_PROVIDER=google|nanobanana`
 
 ## 환경 변수
 - `GEMINI_API_KEY`: Google AI Studio/Gemini API 키
-- `GEMINI_MODEL_ID`: 기본 `gemini-2.5-flash-image`
+- `GEMINI_MODEL_ID`: 기본 `gemini-2.5-flash-image-preview`
 
 
 ## 호출 방식 (개념)

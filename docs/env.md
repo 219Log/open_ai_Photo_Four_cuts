@@ -2,7 +2,7 @@
 
 ## 필수 환경 변수
 - `GEMINI_API_KEY`: Gemini API 키 (Google AI Studio)
-- `GEMINI_MODEL_ID`: 기본 `gemini-2.5-flash-image`
+- `GEMINI_MODEL_ID`: 기본 `gemini-2.5-flash-image-preview`
 - `PORT` (백엔드): 기본 8080
 - `NEXT_PUBLIC_API_BASE` (프론트): 상대 경로 사용 시 생략 가능(`/api`)
 
@@ -18,7 +18,7 @@ AI_PROVIDER=google
 
 # Gemini
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY
-GEMINI_MODEL_ID=gemini-2.5-flash-image
+GEMINI_MODEL_ID=gemini-2.5-flash-image-preview
 
 # Nanobanana (optional)
 NANOBANANA_API_KEY=YOUR_NANOBANANA_API_KEY
