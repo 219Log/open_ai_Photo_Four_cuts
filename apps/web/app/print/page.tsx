@@ -68,6 +68,7 @@ export default function PrintPage() {
           gap: 12,
           gridTemplateColumns: 'repeat(3, minmax(90px, 1fr))',
           alignItems: 'stretch',
+          marginTop: 40,
         }}
       >
         <div

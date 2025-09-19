@@ -194,8 +194,12 @@ export default function CameraPage() {
     if (!activeSlot) { e.currentTarget.value = ''; return }
     const reader = new FileReader()
     reader.onload = async () => {
+      const slotNow = activeSlot as SlotId
       const dataUrl = await downscaleDataUrl(reader.result as string, 1024, 0.85)
-      setSlots(prev => ({ ...prev, [activeSlot as SlotId]: dataUrl }))
+      setSlots(prev => ({ ...prev, [slotNow]: dataUrl }))
+      // Auto-advance selection after upload
+      if (slotNow < 4) setActiveSlot((slotNow + 1) as SlotId)
+      else setActiveSlot(null)
     }
     reader.readAsDataURL(file)
     e.currentTarget.value = ''
@@ -348,7 +352,7 @@ export default function CameraPage() {
           <div style={{ display: 'flex', gap: 16, justifyContent: 'space-between', alignItems: 'center', maxWidth: 260, margin: '0 auto' }}>
             <button onClick={resetAll} style={{ width: 72, height: 72, borderRadius: 12, background: '#b91c1c', color: '#fff' }}>초기화</button>
             <button onClick={onShoot} disabled={!activeSlot || isShooting} style={{ width: 72, height: 72, borderRadius: 12, opacity: (!activeSlot || isShooting) ? 0.5 : 1, cursor: (!activeSlot || isShooting) ? 'not-allowed' : 'pointer' }}>촬영</button>
-            <button onClick={() => fileInputRef.current?.click()} style={{ width: 72, height: 72, borderRadius: 12 }}>업로드</button>
+            <button onClick={() => fileInputRef.current?.click()} disabled={!activeSlot} style={{ width: 72, height: 72, borderRadius: 12, opacity: !activeSlot ? 0.5 : 1, cursor: !activeSlot ? 'not-allowed' : 'pointer' }} title={!activeSlot ? '컷을 먼저 선택하세요' : undefined}>업로드</button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={onUpload} style={{ display: 'none' }} aria-label="사진 업로드" title="사진 업로드" />
           </div>
         </div>
