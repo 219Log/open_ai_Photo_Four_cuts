@@ -248,6 +248,24 @@ export default function CameraPage() {
     } catch {}
   }
 
+  function resetAll() {
+    const ok = typeof window !== 'undefined' ? window.confirm('변환전/후 이미지를 모두 비웁니다. 계속하시겠습니까?') : true
+    if (!ok) return
+    setSlots({ 1: null, 2: null, 3: null, 4: null })
+    setConverted({ 1: null, 2: null, 3: null, 4: null })
+    setActiveSlot(1)
+    setActivePresetKey(PRESETS[0].key)
+    setPrompt(PRESETS[0].prompt)
+    try {
+      if (typeof window !== 'undefined') {
+        try { sessionStorage.removeItem('printPayload') } catch {}
+      }
+      localStorage.removeItem('slots')
+      localStorage.removeItem('convertedSlots')
+      localStorage.removeItem('prompt')
+    } catch {}
+  }
+
   return (
     <main style={{ display: 'grid', gap: 12, padding: 12 }}>
       <h2>카메라</h2>
@@ -265,6 +283,15 @@ export default function CameraPage() {
                 <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }} muted playsInline />
               </div>
             </div>
+            {/* 전/후면 토글 오버레이 */}
+            <button
+              onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
+              style={{ position: 'absolute', bottom: 8, left: 8, width: 72, height: 72, borderRadius: 12, display: 'grid', placeItems: 'center' }}
+              title="전면/후면 전환"
+              aria-label="전면/후면 전환"
+            >
+              <div style={{ textAlign: 'center', lineHeight: 1.2 }}>전면/후면<br />전환</div>
+            </button>
           </div>
           {cameraError && (
             <div style={{ color: '#d32f2f', marginTop: 8, fontSize: 12 }}>{cameraError}</div>
@@ -293,10 +320,46 @@ export default function CameraPage() {
         <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 8 }}>
           <div style={{ fontWeight: 600, marginBottom: 6, textAlign: 'center' }}>컨트롤</div>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'space-between', alignItems: 'center', maxWidth: 260, margin: '0 auto' }}>
-            <button onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')} style={{ width: 72, height: 72, borderRadius: 12 }}>전/후면</button>
+            <button onClick={resetAll} style={{ width: 72, height: 72, borderRadius: 12, background: '#b91c1c', color: '#fff' }}>초기화</button>
             <button onClick={onShoot} style={{ width: 72, height: 72, borderRadius: 12 }}>촬영</button>
             <button onClick={() => fileInputRef.current?.click()} style={{ width: 72, height: 72, borderRadius: 12 }}>업로드</button>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={onUpload} style={{ display: 'none' }} />
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={onUpload} style={{ display: 'none' }} aria-label="사진 업로드" title="사진 업로드" />
+          </div>
+        </div>
+      </div>
+
+      {/* 컨트롤 아래: 컨셉 섹션 */}
+      <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 8 }}>
+        <div style={{ fontWeight: 600, marginBottom: 6, textAlign: 'center' }}>컨셉</div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            {PRESETS.map(p => {
+              const active = activePresetKey === p.key
+              return (
+                <button
+                  key={p.key}
+                  onClick={() => choosePreset(p.key, p.prompt)}
+                  title={p.label}
+                  style={{
+                    width: '100%', height: 48,
+                    borderRadius: 10,
+                    border: active ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                    background: active ? '#e0efff' : '#fff',
+                    fontWeight: 700
+                  }}
+                >{p.label}</button>
+              )
+            })}
+          </div>
+          <div>
+            <button
+              onClick={() => { if (!isConvertDisabled) convertAll() }}
+              disabled={isConvertDisabled}
+              style={{ width: '100%', height: 48, borderRadius: 10, background: '#111827', color: '#fff', opacity: isConvertDisabled ? 0.5 : 1, cursor: isConvertDisabled ? 'not-allowed' : 'pointer', display: 'grid', placeItems: 'center' }}
+              title={!isAllSlotsReady ? '4컷을 모두 채워주세요' : undefined}
+            >
+              <span style={{ fontSize: 16, fontWeight: 700 }}>🎨 변환</span>
+            </button>
           </div>
         </div>
       </div>
@@ -350,65 +413,17 @@ export default function CameraPage() {
         </div>
       </div>
 
-      {/* 하단: 프리셋/프롬프트 */}
-      <div style={{ display: 'grid', gap: 8 }}>
-        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(4, 1fr)' }}>
-          {PRESETS.map(p => {
-            const active = activePresetKey === p.key
-            return (
-              <button
-                key={p.key}
-                onClick={() => choosePreset(p.key, p.prompt)}
-                aria-pressed={active}
-                title={p.label}
-                style={{
-                  width: '100%', height: 48,
-                  borderRadius: 10,
-                  border: active ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                  background: active ? '#e0efff' : '#fff',
-                  fontWeight: 700
-                }}
-              >{p.label}</button>
-            )
-          })}
-        </div>
-        <input
-          value={prompt}
-          onChange={e => { setPrompt(e.target.value); setActivePresetKey(null) }}
-          placeholder="프롬프트를 입력하거나 프리셋을 선택"
-          style={{ display: 'none' }}
-          aria-hidden
-        />
-      </div>
+      
 
-      {/* 하단: 앱 아이콘 카드 (AI 변환, 홈, 프린트) */}
+      {/* 하단: 앱 아이콘 카드 (홈, 프린트) */}
       <div
         style={{
           display: 'grid',
           gap: 12,
-          gridTemplateColumns: 'repeat(3, minmax(90px, 1fr))',
+          gridTemplateColumns: 'repeat(2, minmax(90px, 1fr))',
           alignItems: 'stretch',
         }}
       >
-        <div
-          onClick={() => { if (!isConvertDisabled) convertAll() }}
-          role="button"
-          aria-disabled={isConvertDisabled}
-          tabIndex={0}
-          onKeyDown={(e) => { if (!isConvertDisabled && (e.key === 'Enter' || e.key === ' ')) convertAll() }}
-          style={{
-            display: 'grid', placeItems: 'center', background: '#111827', color: 'white',
-            borderRadius: 16, aspectRatio: '1 / 1', cursor: isConvertDisabled ? 'not-allowed' : 'pointer', userSelect: 'none',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)', opacity: isConvertDisabled ? 0.5 : 1
-          }}
-          title={!isAllSlotsReady ? '4컷을 모두 채워주세요' : undefined}
-        >
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 32, lineHeight: 1, marginBottom: 6 }}>🎨</div>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>변환</div>
-          </div>
-        </div>
-
         <Link
           href="/"
           style={{
